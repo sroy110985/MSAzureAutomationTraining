@@ -76,8 +76,8 @@ Invoke-Command -ComputerName 13.81.172.177 -Port 5985 -Authentication Negotiate 
 
 }
 
-$pass = "citynext!1234"
-$username = "citynextadmin"
+$pass = "fgdfgdfgdgg"
+$username = "dfgdfgdfgdfg"
 
 $password = ConvertTo-SecureString -String $pass -AsPlainText -Force
 
