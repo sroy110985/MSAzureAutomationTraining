@@ -45,10 +45,14 @@
 
     },
     {
-      "name": "[variables('publicIDAddressName')]",
+      "name": "[concat(variables('publicIDAddressName'), copyindex())]",
       "apiVersion": "2018-02-01",
       "location": "[resourceGroup().location]",
       "type": "Microsoft.Network/publicIPAddresses",
+      "copy": {
+        "count": 2,
+        "name": "allpublicipaddress"
+      },
       "properties": {
         "publicIPAllocationMethod": "Static"
       },
@@ -56,6 +60,7 @@
         "[concat(variables('storageAccountName'))]"
       ]
     },
+
     {
       "name": "[variables('virtualNetworkName')]",
       "apiVersion": "2018-08-01",
@@ -82,7 +87,7 @@
       "type": "Microsoft.Network/networkInterfaces",
       "dependsOn": [
         "[variables('virtualNetworkName')]",
-        "[variables('publicIDAddressName')]"
+        "allpublicipaddress"
       ],
       "properties": {
         "ipConfigurations": [
@@ -90,7 +95,7 @@
             "name": "ipconfig0",
             "properties": {
               "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIDAddressName'))]"
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('publicIDAddressName'),'0'))]"
               },
               "subnet": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'subnet01')]"
@@ -99,6 +104,52 @@
             }
           }
         ]
+      }
+    },
+    {
+      "name": "MyUniqueVM",
+      "apiVersion": "2018-06-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "dependsOn": [
+        "[concat(variables('storageAccountName'))]",
+        "[variables('nicname')]"
+      ],
+      "properties": {
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceid('Microsoft.Network/networkInterfaces',variables('nicname') )]",
+              "properties": {
+                "primary": true
+              }
+            }
+          ]
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2016-datacenter",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage",
+            "caching": "ReadWrite",
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat(reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2016-01-01').primaryEndpoints.blob, 'vhds', '/', 'myprimaryvm', '.vhd')]"
+            }
+          }
+        },
+        "osProfile": {
+          "adminPassword": "Password!1234",
+          "adminUsername": "citynextadmin",
+          "computerName": "MyUniqueVM"
+        },
+        "hardwareProfile": {
+          "vmSize": "Standard_A3"
+        }
       }
     }
   ],
@@ -109,7 +160,7 @@
     },
     "publicIpAddress": {
       "type": "object",
-      "value": "[reference(variables('publicIDAddressName'))]"
+      "value": "[reference(concat(variables('publicIDAddressName'),'0'))]"
     },
     "virtualNetwork": {
       "type": "object",
