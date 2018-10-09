@@ -10,31 +10,24 @@
   },
   "resources": [
     {
-      "name": "StorageAccountDeployment",
-      "apiVersion": "2018-09-01",
-      "type": "Microsoft.Resources/deployments",
+      "name": "[parameters('storageAccountName')]",
+      "apiVersion": "2018-07-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "[parameters('storageAccountSKU')]"
+      },
       "properties": {
-        "mode": "Incremental",
-        "templateLink": {
-          "uri": "https://mclassoctpitrewq.blob.core.windows.net/armtemplates/json2.json",
-          "contentVersion": "1.0.0.0"
-        },
-        "parameters": {
-          "storageAccountName": {
-            "value": "[parameters('storageAccountName')]"
-          },
-          "storageAccountSKU": {
-            "value": "[parameters('storageAccountSKU')]"
-          }
-        }
+
       }
 
     }
   ],
   "outputs": {
-    "deploymentStorageDetails": {
+    "storageDetails": {
       "type": "object",
-      "value": "[reference('StorageAccountDeployment').outputs.storageDetails.value]"
+      "value": "[reference(parameters('storageAccountName'))]"
     }
   }
 }
