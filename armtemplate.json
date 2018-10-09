@@ -1,0 +1,124 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "virtualMachineName": {
+      "defaultValue": "someTestVM",
+      "type": "string",
+      "allowedValues": [ "someTestVM", "RiteshVM" ],
+      "maxLength": 10,
+      "minLength": 5
+    },
+    "virtualMachineOS": {
+      "defaultValue": {
+        "publisherName": "MicrosoftWindowsServer",
+        "OfferName": "WindowsServer",
+        "SkuName": "2016-Datacenter",
+        "version": "latest"
+      },
+      "type": "object"
+    },
+    "environments": {
+      "type": "array"
+    }
+  },
+  "variables": {
+    "myuniqueVMName": "[concat(parameters('virtualMachineName'), 'asasdad')]",
+    "storageAccountName": "[uniqueString(variables('myuniqueVMName'))]",
+    "publicIDAddressName": "[uniqueString(resourceGroup().Id)]",
+    "virtualNetworkName": "Mynet01",
+    "nicname": "mynic01"
+  },
+  "resources": [
+    {
+      "name": "[concat(variables('storageAccountName'))]",
+      "apiVersion": "2018-07-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+
+      }
+
+    },
+    {
+      "name": "[variables('publicIDAddressName')]",
+      "apiVersion": "2018-02-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      },
+      "dependsOn": [
+        "[concat(variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "name": "[variables('virtualNetworkName')]",
+      "apiVersion": "2018-08-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [ "10.0.0.0/16" ]
+        },
+        "subnets": [
+          {
+            "name": "subnet01",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('nicname')]",
+      "apiVersion": "2018-08-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "dependsOn": [
+        "[variables('virtualNetworkName')]",
+        "[variables('publicIDAddressName')]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig0",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIDAddressName'))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'subnet01')]"
+              },
+              "privateIPAllocationMethod": "Dynamic"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "storageAccount": {
+      "type": "object",
+      "value": "[reference(variables('storageAccountName'))]"
+    },
+    "publicIpAddress": {
+      "type": "object",
+      "value": "[reference(variables('publicIDAddressName'))]"
+    },
+    "virtualNetwork": {
+      "type": "object",
+      "value": "[reference('Mynet01')]"
+    },
+    "NIC": {
+      "type": "object",
+      "value": "[reference('mynic01')]"
+    }
+
+  }
+}
