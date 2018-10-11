@@ -1,0 +1,187 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "virtualMachineName": {
+      "defaultValue": "mclassoct",
+      "type": "string",
+      "maxLength": 10,
+      "minLength": 5
+    }  
+  },
+  "variables": {
+    "myuniqueVMName": "[concat(parameters('virtualMachineName'), 'wednes')]",
+    "storageAccountName": "[uniqueString(variables('myuniqueVMName'))]",
+    "publicIDAddressName": "[uniqueString(resourceGroup().Id)]",
+    "virtualNetworkName": "Mynet01",
+    "nicname": "mynic01"
+  },
+  "resources": [
+    {
+      "name": "[concat(variables('storageAccountName'))]",
+      "apiVersion": "2018-07-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+
+      }
+
+    },
+    {
+      "name": "[concat(variables('publicIDAddressName'), copyindex())]",
+      "apiVersion": "2018-02-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "copy": {
+        "count": 3,
+        "name": "allpublicipaddress"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      },
+      "dependsOn": [
+        "[concat(variables('storageAccountName'))]"
+      ]
+    },
+
+    {
+      "name": "[variables('virtualNetworkName')]",
+      "apiVersion": "2018-08-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [ "10.0.0.0/16" ]
+        },
+        "subnets": [
+          {
+            "name": "subnet01",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat(variables('nicname'), copyindex())]",
+      "apiVersion": "2018-08-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "copy": {
+        "count": 3,
+        "name": "allnics"
+      },
+      "dependsOn": [
+        "[variables('virtualNetworkName')]",
+        "allpublicipaddress"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig0",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('publicIDAddressName'),copyindex()))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'subnet01')]"
+              },
+              "privateIPAllocationMethod": "Dynamic"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat('MyUniqueVM', copyindex())]",
+      "apiVersion": "2018-06-01",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "copy": {
+        "count": 3,
+        "name": "allvms"
+      },
+      "dependsOn": [
+        "[concat(variables('storageAccountName'))]",
+        "[concat(variables('nicname'), copyindex())]"
+      ],
+      "properties": {
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceid('Microsoft.Network/networkInterfaces',concat(variables('nicname'),copyindex()) )]",
+              "properties": {
+                "primary": true
+              }
+            }
+          ]
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2016-datacenter",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage",
+            "caching": "ReadWrite",
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat(reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2016-01-01').primaryEndpoints.blob, 'vhds', '/', 'myprimaryvm', copyindex() , '.vhd')]"
+            }
+          }
+        },
+        "osProfile": {
+          "adminPassword": "Password!1234",
+          "adminUsername": "citynextadmin",
+          "computerName": "[concat('MyUniqueVM', copyindex())]"
+        },
+        "hardwareProfile": {
+          "vmSize": "Basic_A2"
+        }
+      }
+
+    },
+    {
+      "name": "[concat('MyUniqueVM', copyindex(),'/','script', copyIndex())]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "copy": {
+        "count": 3,
+        "name": "allpowershellscripts"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', concat('MyUniqueVM', copyindex()))]"
+      ],
+      "tags": {
+        "displayName": "firstCustomScriptExtension"
+      },
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.4",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "https://everfilestorage.blob.core.windows.net/automationfiles/Script6.ps1"
+          ],
+          "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ',  'Script6.ps1', ' -featureName web-server -serviceName w3svc')]"
+        }
+      }
+    }
+
+
+
+  ],
+  "outputs": {
+
+
+  }
+}
